@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="bg">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Пирамида – проверка на отговор</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 0; padding: 24px; background: #f7f7f7; }
+    .card { max-width: 780px; margin: 0 auto; background: white; border-radius: 16px; padding: 20px; box-shadow: 0 8px 30px rgba(0,0,0,.08); }
+    h1 { margin: 0 0 8px; font-size: 22px; }
+    .sub { margin: 0 0 16px; color: #555; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    input { padding: 12px 12px; border-radius: 12px; border: 1px solid #ccc; font-size: 16px; width: 240px; }
+    button { padding: 12px 14px; border-radius: 12px; border: 0; cursor: pointer; font-size: 16px; }
+    button.primary { background: #111; color: white; }
+    button.ghost { background: #eee; }
+    .msg { padding: 12px; border-radius: 12px; display: none; }
+    .ok { background: #e9fff0; border: 1px solid #b7f0c6; }
+    .bad { background: #fff2f2; border: 1px solid #ffd0d0; }
+    .hint { color: #444; font-size: 14px; }
+    .counter { color: #666; font-size: 14px; }
+    .svgwrap { display: none; margin-top: 10px; }
+    .small { font-size: 13px; color: #666; }
+    .pill { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #f0f0f0; font-size: 13px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Египетска пирамида – проверка на отговора</h1>
+    <p class="sub">
+      Дадено: квадратна основа <span class="pill">a = 230 m</span> и височина <span class="pill">h = 146 m</span>.
+      Въпрос: <b>Какъв е обемът V (в m³)?</b>
+    </p>
+
+    <div class="grid">
+      <div class="row">
+        <input id="ans" inputmode="numeric" placeholder="Напиши V (напр. 2574000)" />
+        <button class="primary" id="checkBtn">Провери</button>
+        <button class="ghost" id="resetBtn" title="Изчисти и започни пак">Наново</button>
+      </div>
+
+      <div id="msgOk" class="msg ok"></div>
+      <div id="msgBad" class="msg bad"></div>
+
+      <div class="row">
+        <div class="counter">Опити: <b id="tries">0</b></div>
+        <div class="hint" id="hintLine"></div>
+      </div>
+
+      <!-- “Картинка” (SVG) – показва се при верен отговор -->
+      <div class="svgwrap" id="svgWrap">
+        <svg viewBox="0 0 760 360" width="100%" height="auto" aria-label="Схема на пирамида">
+          <!-- основа -->
+          <polygon points="180,270 420,310 660,270 420,230"
+                   fill="none" stroke="black" stroke-width="3"/>
+          <!-- връх и ръбове -->
+          <circle cx="420" cy="90" r="4" fill="black"/>
+          <line x1="420" y1="90" x2="180" y2="270" stroke="black" stroke-width="3"/>
+          <line x1="420" y1="90" x2="660" y2="270" stroke="black" stroke-width="3"/>
+          <line x1="420" y1="90" x2="420" y2="310" stroke="black" stroke-width="2" stroke-dasharray="6 6"/>
+
+          <!-- размери -->
+          <text x="300" y="338" font-size="18">a = 230 m</text>
+          <text x="440" y="170" font-size="18">h = 146 m</text>
+
+          <!-- формула -->
+          <text x="40" y="60" font-size="18">V = (1/3) · B · h</text>
+          <text x="40" y="88" font-size="18">B = a² = 230² = 52 900 m²</text>
+          <text x="40" y="116" font-size="18">V ≈ (1/3) · 52 900 · 146 ≈ 2 574 000 m³</text>
+
+          <!-- печат "ВЯРНО" -->
+          <g transform="translate(560 40) rotate(8)">
+            <rect x="0" y="0" width="160" height="54" rx="10" fill="none" stroke="black" stroke-width="3"/>
+            <text x="80" y="35" text-anchor="middle" font-size="22">ВЯРНО ✔</text>
+          </g>
+        </svg>
+        <div class="small">Подсказка: допускаме закръгляне до най-близките хиляди (≈).</div>
+      </div>
+
+      <div class="small">
+        💡 Приема се верен отговор <b>2574000</b> (без интервали). Ако въведеш <b>2 574 000</b> с интервали/запетаи — пак ще го разпознае.
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Верният отговор (обем) – допускаме малка толерантност заради закръгляне
+    const correct = 2574000;
+    const tolerance = 5000; // +/- 5 000 m³
+
+    let tries = 0;
+
+    function normalizeNumber(str) {
+      // махаме интервали, точки, запетаи
+      return (str || "").toString().replace(/[ \t\n\r.,]/g, "");
+    }
+
+    function show(el, yes) {
+      el.style.display = yes ? "block" : "none";
+    }
+
+    function setHint() {
+      // 2 подсказки (след 1-ви и 2-ри грешен опит)
+      const hintLine = document.getElementById("hintLine");
+      if (tries === 1) {
+        hintLine.textContent = "Подсказка 1: B = a². Първо намери B, после V = (1/3)·B·h.";
+      } else if (tries === 2) {
+        hintLine.textContent = "Подсказка 2: 230² = 52 900. После 52 900·146 ≈ 7 723 400, раздели на 3.";
+      } else {
+        hintLine.textContent = "";
+      }
+    }
+
+    function check() {
+      const input = document.getElementById("ans").value;
+      const cleaned = normalizeNumber(input);
+
+      // ако няма число
+      if (!cleaned || isNaN(Number(cleaned))) {
+        const bad = document.getElementById("msgBad");
+        bad.textContent = "Моля, въведи число (например 2574000).";
+        show(bad, true);
+        show(document.getElementById("msgOk"), false);
+        show(document.getElementById("svgWrap"), false);
+        return;
+      }
+
+      const value = Number(cleaned);
+      tries += 1;
+      document.getElementById("tries").textContent = tries;
+      setHint();
+
+      const ok = Math.abs(value - correct) <= tolerance;
+
+      const okBox = document.getElementById("msgOk");
+      const badBox = document.getElementById("msgBad");
+      const svg = document.getElementById("svgWrap");
+
+      if (ok) {
+        okBox.innerHTML = "🎉 Браво! Верен отговор. Обемът е приблизително <b>2 574 000 m³</b>.";
+        show(okBox, true);
+        show(badBox, false);
+        show(svg, true);
+      } else {
+        badBox.innerHTML = "❌ Не е точно. Опитай пак. (Подсказките ще се появят след първите опити.)";
+        show(badBox, true);
+        show(okBox, false);
+        show(svg, false);
+      }
+    }
+
+    function resetAll() {
+      tries = 0;
+      document.getElementById("tries").textContent = "0";
+      document.getElementById("ans").value = "";
+      document.getElementById("hintLine").textContent = "";
+      show(document.getElementById("msgOk"), false);
+      show(document.getElementById("msgBad"), false);
+      show(document.getElementById("svgWrap"), false);
+      document.getElementById("ans").focus();
+    }
+
+    document.getElementById("checkBtn").addEventListener("click", check);
+    document.getElementById("resetBtn").addEventListener("click", resetAll);
+    document.getElementById("ans").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") check();
+    });
+  </script>
+</body>
+</html>
